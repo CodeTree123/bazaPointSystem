@@ -20,6 +20,7 @@ use App\Models\Product;
 use App\Models\Shop;
 use App\Models\GenerationTransaction;
 use App\Models\CommissionLog;
+use App\Models\AffiliateLog;
 use App\Models\ReferralSetting;
 use App\Utility\SendSMSUtility;
 use App\Utility\NotificationUtility;
@@ -885,8 +886,6 @@ function getAmount($amount, $decimals)
 function levelCommission($userId, $remainingPoints, $deductedPoints, $trx, $commissionType = '')
 {
     $user = User::find($userId);
-    $user->balance += $deductedPoints;
-    $user->save();
     if (!$user) {
         return;
     }
@@ -901,6 +900,10 @@ function levelCommission($userId, $remainingPoints, $deductedPoints, $trx, $comm
         
         if (!$refUser || !$commission) {
             break;
+        }
+
+        if ($i == 1) {
+            $refUser->balance += $deductedPoints;
         }
 
         $commissionAmount = ($remainingPoints * $commission->percent) / 100;
@@ -936,11 +939,21 @@ function levelCommission($userId, $remainingPoints, $deductedPoints, $trx, $comm
         $i++;
     }
 
+    $affiliateLog[] = [
+        'amount' => $deductedPoints,
+        'referred_by_user' => $user->id,
+        'affiliate_type' => 'referral',
+    ];
+
     if (isset($transactions)) {
         GenerationTransaction::insert($transactions);
     }
 
     if (isset($commissionLog)) {
         CommissionLog::insert($commissionLog);
+    }
+
+    if (isset($affiliateLog)) {
+        AffiliateLog::insert($affiliateLog);
     }
 }
